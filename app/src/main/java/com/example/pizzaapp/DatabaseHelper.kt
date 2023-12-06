@@ -3,12 +3,16 @@ package com.example.pizzaapp
 import android.annotation.SuppressLint
 import android.content.ContentValues
 import android.content.Context
+import android.database.Cursor
 import android.database.sqlite.SQLiteDatabase
+import android.database.sqlite.SQLiteException
 import android.database.sqlite.SQLiteOpenHelper
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.provider.ContactsContract.CommonDataKinds.Email
 import android.widget.Toast
 import com.example.pizzaapp.model.MenuModel
+import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 
 class DatabaseHelper(var context:Context): SQLiteOpenHelper(
@@ -157,5 +161,64 @@ class DatabaseHelper(var context:Context): SQLiteOpenHelper(
             Toast.makeText(context, "Add menu Success",Toast.LENGTH_SHORT).show()
         }
         db.close()
+    }
+
+    fun editMenu(menu:MenuModel){
+        val db = this.writableDatabase
+        val values = ContentValues()
+        values.put(COLUMN_ID_MENU, menu.id)
+        values.put(COLUMN_NAMA_MENU, menu.name)
+        values.put(COLUMN_PRICE_MENU, menu.price)
+        //prepare image
+        val byteOutputStream = ByteArrayOutputStream()
+        val imageInByte:ByteArray
+        menu.image.compress(Bitmap.CompressFormat.JPEG, 100,byteOutputStream)
+        imageInByte = byteOutputStream.toByteArray()
+        values.put(COLUMN_IMAGE, imageInByte)
+
+        val result = db.update(TABLE_MENU, values, COLUMN_ID_MENU+" = ? ", arrayOf(menu.id.toString())).toLong()
+        //show message
+        if (result==(0).toLong()){
+            Toast.makeText(context, "Add menu Failed", Toast.LENGTH_SHORT).show()
+        }
+        else {
+            Toast.makeText(context, "Add menu Success",Toast.LENGTH_SHORT).show()
+        }
+        db.close()
+    }
+
+    fun showMenu():ArrayList<MenuModel>{
+        val listModel = ArrayList<MenuModel>()
+        val db = this.readableDatabase
+        val cursor:Cursor?=null
+        try {
+            cursor = db.rawQuery("SELECT * FROM" + TABLE_MENU, null)
+        }catch (se:SQLiteException){
+            db.execSQL(CREATE_MENU_TABLE)
+            return ArrayList()
+        }
+
+        var id:Int
+        var name:String
+        var price:Int
+        var imageArray:ByteArray
+        var imageBmp:Bitmap
+
+        if(cursor.moveToFirst()) {
+            do {
+                //get data text
+                id = cursor.getInt(cursor.getColumnIndex(COLUMN_ID_MENU))
+                name = cursor.getString(cursor.getColumnIndex(COLUMN_NAMA_MENU))
+                price = cursor.getInt(cursor.getColumnIndex(COLUMN_PRICE_MENU))
+                //get data image
+                imageArray = cursor.getBlob(cursor.getColumnIndex(COLUMN_IMAGE))
+                //convert ByteArray to Bitmap
+                val byteInputStream = ByteArrayInputStream(imageArray)
+                imageBmp = BitmapFactory.decodeStream(byteInputStream)
+                val model = MenuModel(id = id, name = name, price = price, image = imageBmp)
+                listModel.add(model)
+            } while (cursor.moveToNext())
+        }
+        return listModel
     }
 }
